@@ -4,6 +4,15 @@ import (
 	"testing"
 )
 
+func mustNewTile(t *testing.T, s Suit, rank int) Tile {
+	t.Helper()
+	tile, err := NewTile(s, rank)
+	if err != nil {
+		t.Fatalf("NewTile(%v, %d) failed: %v", s, rank, err)
+	}
+	return tile
+}
+
 func TestSuit_String(t *testing.T) {
 	tests := []struct {
 		suit Suit
@@ -24,7 +33,10 @@ func TestSuit_String(t *testing.T) {
 
 func TestNewTile(t *testing.T) {
 	t.Run("valid tiles", func(t *testing.T) {
-		tile := NewTile(SuitManzu, 1)
+		tile, err := NewTile(SuitManzu, 1)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 		if tile.Suit() != SuitManzu {
 			t.Errorf("expected SuitManzu, got %v", tile.Suit())
 		}
@@ -33,22 +45,18 @@ func TestNewTile(t *testing.T) {
 		}
 	})
 
-	t.Run("panic on invalid rank low", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Errorf("The code did not panic")
-			}
-		}()
-		NewTile(SuitManzu, 0)
+	t.Run("error on invalid rank low", func(t *testing.T) {
+		_, err := NewTile(SuitManzu, -1)
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
 	})
 
-	t.Run("panic on invalid rank high", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Errorf("The code did not panic")
-			}
-		}()
-		NewTile(SuitManzu, 10)
+	t.Run("error on invalid rank high", func(t *testing.T) {
+		_, err := NewTile(SuitManzu, 10)
+		if err == nil {
+			t.Errorf("expected error, got nil")
+		}
 	})
 }
 
@@ -63,15 +71,16 @@ func TestTile_Methods(t *testing.T) {
 		isDragon          bool
 		str               string
 	}{
-		{NewTile(SuitManzu, 1), false, true, true, true, false, false, "1m"},
-		{NewTile(SuitManzu, 5), false, true, false, false, false, false, "5m"},
-		{NewTile(SuitManzu, 9), false, true, true, true, false, false, "9m"},
-		{NewTile(SuitPinzu, 1), false, true, true, true, false, false, "1p"},
-		{NewTile(SuitSouzu, 9), false, true, true, true, false, false, "9s"},
-		{NewTile(SuitHonor, 1), true, false, false, true, true, false, "E"},
-		{NewTile(SuitHonor, 4), true, false, false, true, true, false, "N"},
-		{NewTile(SuitHonor, 5), true, false, false, true, false, true, "P"},
-		{NewTile(SuitHonor, 7), true, false, false, true, false, true, "C"},
+		{mustNewTile(t, SuitManzu, 1), false, true, true, true, false, false, "1m"},
+		{mustNewTile(t, SuitManzu, 5), false, true, false, false, false, false, "5m"},
+		{mustNewTile(t, SuitManzu, 9), false, true, true, true, false, false, "9m"},
+		{mustNewTile(t, SuitPinzu, 1), false, true, true, true, false, false, "1p"},
+		{mustNewTile(t, SuitSouzu, 9), false, true, true, true, false, false, "9s"},
+		{mustNewTile(t, SuitHonor, 1), true, false, false, true, true, false, "E"},
+		{mustNewTile(t, SuitHonor, 4), true, false, false, true, true, false, "N"},
+		{mustNewTile(t, SuitHonor, 5), true, false, false, true, false, true, "G"},
+		{mustNewTile(t, SuitHonor, 6), true, false, false, true, false, true, "R"},
+		{mustNewTile(t, SuitHonor, 7), true, false, false, true, false, true, "Wh"},
 	}
 
 	for _, tt := range tests {
@@ -97,7 +106,51 @@ func TestTile_Methods(t *testing.T) {
 			if got := tt.tile.String(); got != tt.str {
 				t.Errorf("String() = %v, want %v", got, tt.str)
 			}
+
+			// Test new flags
+			if tt.tile.IsDora() {
+				t.Errorf("expected IsDora() to be false initially")
+			}
+			if tt.tile.IsUra() {
+				t.Errorf("expected IsUra() to be false initially")
+			}
+			isRed := tt.tile.IsNumbered() && tt.tile.Rank() == 0
+			if got := tt.tile.IsRed(); got != isRed {
+				t.Errorf("IsRed() = %v, want %v", got, isRed)
+			}
+
+			// Test SetDora/SetUra
+			doraTile := tt.tile.SetDora(true)
+			if !doraTile.IsDora() {
+				t.Errorf("SetDora(true) failed")
+			}
+			if doraTile.SetDora(false).IsDora() {
+				t.Errorf("SetDora(false) failed")
+			}
+
+			uraTile := tt.tile.SetUra(true)
+			if !uraTile.IsUra() {
+				t.Errorf("SetUra(true) failed")
+			}
+			if uraTile.SetUra(false).IsUra() {
+				t.Errorf("SetUra(false) failed")
+			}
 		})
+	}
+}
+
+func TestTile_RedFive(t *testing.T) {
+	redFive, _ := NewRedFive(SuitManzu)
+	if !redFive.IsRed() {
+		t.Errorf("NewRedFive should be IsRed")
+	}
+	if redFive.Rank() != 0 {
+		t.Errorf("NewRedFive rank should be 0, got %d", redFive.Rank())
+	}
+
+	normalFive := mustNewTile(t, SuitManzu, 5)
+	if normalFive.IsRed() {
+		t.Errorf("Normal five should not be IsRed")
 	}
 }
 
@@ -107,22 +160,22 @@ func TestParseTile(t *testing.T) {
 		want    Tile
 		wantErr bool
 	}{
-		{"1m", NewTile(SuitManzu, 1), false},
-		{"9p", NewTile(SuitPinzu, 9), false},
-		{"3s", NewTile(SuitSouzu, 3), false},
-		{"E", NewTile(SuitHonor, 1), false},
-		{"S", NewTile(SuitHonor, 2), false},
-		{"W", NewTile(SuitHonor, 3), false},
-		{"N", NewTile(SuitHonor, 4), false},
-		{"P", NewTile(SuitHonor, 5), false},
-		{"F", NewTile(SuitHonor, 6), false},
-		{"C", NewTile(SuitHonor, 7), false},
-		{" 1m ", NewTile(SuitManzu, 1), false},
-		{"e", NewTile(SuitHonor, 1), false},
+		{"1m", mustNewTile(t, SuitManzu, 1), false},
+		{"9p", mustNewTile(t, SuitPinzu, 9), false},
+		{"3s", mustNewTile(t, SuitSouzu, 3), false},
+		{"E", mustNewTile(t, SuitHonor, 1), false},
+		{"S", mustNewTile(t, SuitHonor, 2), false},
+		{"W", mustNewTile(t, SuitHonor, 3), false},
+		{"N", mustNewTile(t, SuitHonor, 4), false},
+		{"Wh", mustNewTile(t, SuitHonor, 7), false},
+		{"R", mustNewTile(t, SuitHonor, 6), false},
+		{"G", mustNewTile(t, SuitHonor, 5), false},
+		{" 1m ", mustNewTile(t, SuitManzu, 1), false},
+		{"e", mustNewTile(t, SuitHonor, 1), false},
 		{"", 0, true},
 		{"X", 0, true},
 		{"1x", 0, true},
-		{"0m", 0, true},
+		{"0m", mustNewTile(t, SuitManzu, 0), false},
 		{"10m", 0, true},
 		{"ABC", 0, true},
 	}
