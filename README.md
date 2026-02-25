@@ -1,0 +1,3 @@
+# Go Mahjong Engine
+
+WIP
