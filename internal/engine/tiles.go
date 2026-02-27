@@ -133,6 +133,7 @@ func (t Tile) String() string {
 	s := t.Suit()
 	r := t.Rank()
 
+	// Numbered & honors both use the same base format
 	if s != SuitHonor {
 		if r == 0 {
 			return "0" + s.String() // red five
@@ -140,22 +141,9 @@ func (t Tile) String() string {
 		return fmt.Sprintf("%d%s", r, s.String())
 	}
 
-	// Honor tiles
-	switch r {
-	case 1:
-		return "E"
-	case 2:
-		return "S"
-	case 3:
-		return "W"
-	case 4:
-		return "N"
-	case 5:
-		return "G" // green Dragon
-	case 6:
-		return "R" // red Dragon
-	case 7:
-		return "Wh" // white Dragon
+	// Honors: 1z–7z
+	if r >= 1 && r <= 7 {
+		return fmt.Sprintf("%d%s", r, s.String())
 	}
 
 	return "?"
@@ -163,8 +151,8 @@ func (t Tile) String() string {
 
 // ParseTile accepts:
 // Numbered: 1m, 0p, 9s
-// Winds:   E, S, W, N
-// Dragons: G, R, Wh
+// Honors:   1z–7z
+// Aliases:  E, S, W, N, G, R, Wh
 func ParseTile(s string) (Tile, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -173,6 +161,7 @@ func ParseTile(s string) (Tile, error) {
 
 	up := strings.ToUpper(s)
 
+	// Aliases for honors
 	switch up {
 	case "E":
 		return NewTile(SuitHonor, 1)
@@ -182,16 +171,15 @@ func ParseTile(s string) (Tile, error) {
 		return NewTile(SuitHonor, 3)
 	case "N":
 		return NewTile(SuitHonor, 4)
-	case "G":
-		return NewTile(SuitHonor, 5)
-	case "R":
+	case "G": // green dragon
 		return NewTile(SuitHonor, 6)
-	case "WH":
+	case "R": // red dragon
 		return NewTile(SuitHonor, 7)
-
+	case "WH": // white dragon
+		return NewTile(SuitHonor, 5)
 	}
 
-	// Numbered suits (0m, 5p, 9s)
+	// Numbered & 1z–7z
 	if len(up) != 2 {
 		return 0, fmt.Errorf("invalid tile format: %q", s)
 	}
@@ -218,6 +206,8 @@ func ParseTile(s string) (Tile, error) {
 		suit = SuitPinzu
 	case 'S':
 		suit = SuitSouzu
+	case 'Z':
+		suit = SuitHonor
 	default:
 		return 0, fmt.Errorf("invalid suit in %q", s)
 	}
